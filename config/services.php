@@ -1,5 +1,11 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
+
 return [
 
     /*
@@ -30,25 +36,9 @@ return [
     ],
 
     'stripe' => [
-        'model' => App\User::class,
+        'model' => \App\Services\Member\Models\User::class,
         'key' => env('STRIPE_KEY'),
         'secret' => env('STRIPE_SECRET'),
-    ],
-
-    'directmail' => [
-        'app_key' => '',
-        'app_secret' => '',
-        'region' => 'cn-beijing',
-        'account' => [
-            'alias' => '',
-            'name' => '',
-        ]
-    ],
-
-    'github' => [
-        'client_id' => env('GITHUB_CLIENT_ID', ''),
-        'client_secret' => env('GITHUB_CLIENT_SECRET', ''),
-        'redirect' => env('GITHUB_CALLBACK_URL', ''),
     ],
 
     'qq' => [

@@ -4,16 +4,14 @@
  * This file is part of the Qsnh/meedu.
  *
  * (c) XiaoTeng <616896861@qq.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
  */
 
 namespace App\Console\Commands;
 
 use Carbon\Carbon;
-use App\Models\Order;
 use Illuminate\Console\Command;
+use App\Services\Order\Services\OrderService;
+use App\Services\Order\Interfaces\OrderServiceInterface;
 
 class OrderTimeoutHandlerCommand extends Command
 {
@@ -29,33 +27,38 @@ class OrderTimeoutHandlerCommand extends Command
      *
      * @var string
      */
-    protected $description = 'order pay timeout.';
+    protected $description = '订单超时处理（自动置为已取消=无法继续支付）';
 
     /**
-     * Create a new command instance.
+     * @var OrderService
      */
-    public function __construct()
+    protected $orderService;
+
+    /**
+     * OrderTimeoutHandlerCommand constructor.
+     *
+     * @param OrderServiceInterface $orderService
+     */
+    public function __construct(OrderServiceInterface $orderService)
     {
         parent::__construct();
+        $this->orderService = $orderService;
     }
 
     /**
-     * Execute the console command.
-     *
-     * @return mixed
+     * @throws \App\Exceptions\ServiceException
      */
     public function handle()
     {
-        $limit = 30 * 60;
-        $now = Carbon::now()->subSeconds($limit);
-        $orders = Order::whereIn('status', [Order::STATUS_PAYING, Order::STATUS_UNPAY])->where('created_at', '<=', $now)->get();
-        if ($orders->isEmpty()) {
+        // 超时一个小时未支付订单
+        $now = Carbon::now()->subMinutes(60);
+        $orders = $this->orderService->getTimeoutOrders($now->toDateTimeString());
+        if (!$orders) {
             return;
         }
         foreach ($orders as $order) {
-            $this->line($order->order_id);
-            $order->status = Order::STATUS_CANCELED;
-            $order->save();
+            $this->line($order['order_id']);
+            $this->orderService->cancel($order['id']);
         }
     }
 }

@@ -4,21 +4,17 @@
  * This file is part of the Qsnh/meedu.
  *
  * (c) XiaoTeng <616896861@qq.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
  */
 
 namespace App\Http;
 
-use App\Http\Middleware\NavShareMiddleware;
-use App\Http\Middleware\UserShareMiddleware;
+use Fruitcake\Cors\HandleCors;
+use App\Http\Middleware\GlobalShareMiddleware;
 use App\Http\Middleware\CheckSmsCodeMiddleware;
-use App\Http\Middleware\InstallCheckMiddleware;
-use App\Http\Middleware\CheckImageCaptchaMiddleware;
+use App\Http\Middleware\MobileBindCheckMiddleware;
+use App\Http\Middleware\LoginStatusCheckMiddleware;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
-use App\Http\Middleware\BackendPermissionCheckMiddleware;
-use App\Http\Middleware\AdministratorLoginCheckMiddleware;
+use App\Http\Middleware\Backend\BackendPermissionCheckMiddleware;
 
 class Kernel extends HttpKernel
 {
@@ -33,8 +29,8 @@ class Kernel extends HttpKernel
         \Illuminate\Foundation\Bootstrap\HandleExceptions::class,
         \Illuminate\Foundation\Bootstrap\RegisterFacades::class,
         \Illuminate\Foundation\Bootstrap\RegisterProviders::class,
-        \Illuminate\Foundation\Bootstrap\BootProviders::class,
         \App\Meedu\AddonsProvider::class,
+        \Illuminate\Foundation\Bootstrap\BootProviders::class,
     ];
 
     /**
@@ -50,7 +46,7 @@ class Kernel extends HttpKernel
         \App\Http\Middleware\TrimStrings::class,
 //        \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
         \App\Http\Middleware\TrustProxies::class,
-        \Barryvdh\Cors\HandleCors::class,
+        HandleCors::class,
     ];
 
     /**
@@ -69,19 +65,8 @@ class Kernel extends HttpKernel
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
 
-        // 页面加速(包括：去除空格，去除注释等)
-        'pagespeed' => [
-            \RenatoMarinho\LaravelPageSpeed\Middleware\InlineCss::class,
-            \RenatoMarinho\LaravelPageSpeed\Middleware\ElideAttributes::class,
-            \RenatoMarinho\LaravelPageSpeed\Middleware\InsertDNSPrefetch::class,
-            \RenatoMarinho\LaravelPageSpeed\Middleware\RemoveComments::class,
-            \RenatoMarinho\LaravelPageSpeed\Middleware\TrimUrls::class,
-            \RenatoMarinho\LaravelPageSpeed\Middleware\RemoveQuotes::class,
-            \RenatoMarinho\LaravelPageSpeed\Middleware\CollapseWhitespace::class,
-        ],
-
         'api' => [
-            'throttle:60,1',
+            'throttle:120,1',
             'bindings',
         ],
     ];
@@ -101,19 +86,17 @@ class Kernel extends HttpKernel
         'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
 
-        // 后台登录检测
-        'backend.login.check' => AdministratorLoginCheckMiddleware::class,
-        // user变量共享
-        'user.share' => UserShareMiddleware::class,
-        // nav变量共享
-        'nav.share' => NavShareMiddleware::class,
+        // global变量共享
+        'global.share' => GlobalShareMiddleware::class,
         // 短信验证
         'sms.check' => CheckSmsCodeMiddleware::class,
-        // 图形验证码验证
-        'image.captcha.check' => CheckImageCaptchaMiddleware::class,
-        // 后台权限校验
-        'backend.permission.check' => BackendPermissionCheckMiddleware::class,
-        // 安装检测
-        'install.check' => InstallCheckMiddleware::class,
+        // 后台权限
+        'backend.permission' => BackendPermissionCheckMiddleware::class,
+        // 登录状态检测
+        'login.status.check' => LoginStatusCheckMiddleware::class,
+        // api接口的状态登录检测
+        'api.login.status.check' => \App\Http\Middleware\Api\LoginStatusCheckMiddleware::class,
+        // 手机号绑定检测
+        'mobile.bind.check' => MobileBindCheckMiddleware::class,
     ];
 }

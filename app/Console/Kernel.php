@@ -4,9 +4,6 @@
  * This file is part of the Qsnh/meedu.
  *
  * (c) XiaoTeng <616896861@qq.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
  */
 
 namespace App\Console;
@@ -28,8 +25,8 @@ class Kernel extends ConsoleKernel
         \Illuminate\Foundation\Bootstrap\RegisterFacades::class,
         \Illuminate\Foundation\Bootstrap\SetRequestForConsole::class,
         \Illuminate\Foundation\Bootstrap\RegisterProviders::class,
-        \Illuminate\Foundation\Bootstrap\BootProviders::class,
         \App\Meedu\AddonsProvider::class,
+        \Illuminate\Foundation\Bootstrap\BootProviders::class,
     ];
 
     /**
@@ -47,21 +44,17 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // 定时备份[每天凌晨5点]
-        $schedule->command('meedu:backup')
-            ->withoutOverlapping()
+        // 订单超时处理
+        $schedule->command('order:pay:timeout')
             ->onOneServer()
-            ->dailyAt('05:00')
-            ->appendOutputTo(storage_path('logs/backup'));
+            ->everyThirtyMinutes()
+            ->appendOutputTo(storage_path('logs/order_pay_timeout'));
 
-        // PING
-        $schedule->command('ping')->dailyAt('06:00');
-
-        // 每30分钟
-        $schedule->command('order:pay:timeout')->everyThirtyMinutes()->appendOutputTo(storage_path('logs/order_pay_timeout'));
-
-        // AdFrom 数据同步
-        $schedule->command('adfrom:sync')->everyThirtyMinutes();
+        // 会员过期处理
+        $schedule->command('member:role:expired')
+            ->onOneServer()
+            ->hourly()
+            ->appendOutputTo(storage_path('logs/user_role_expired'));
     }
 
     /**
@@ -69,8 +62,6 @@ class Kernel extends ConsoleKernel
      */
     protected function commands()
     {
-        $this->load(__DIR__.'/Commands');
-
-        require base_path('routes/console.php');
+        $this->load(__DIR__ . '/Commands');
     }
 }

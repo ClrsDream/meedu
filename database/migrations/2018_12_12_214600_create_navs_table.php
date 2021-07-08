@@ -1,5 +1,11 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
+
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
@@ -19,6 +25,8 @@ class CreateNavsTable extends Migration
             $table->string('name')->comment('链接名');
             $table->string('url')->comment('链接地址');
             $table->timestamps();
+
+            $table->engine = 'InnoDB';
         });
     }
 

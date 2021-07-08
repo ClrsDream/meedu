@@ -1,24 +1,27 @@
-@extends('layouts.app')
+@extends('frontend.layouts.app')
 
 @section('content')
 
-    <header class="header bg-ui-general header-inverse">
-        <div class="header-info">
-            <h1 class="header-title">
-                <strong>支付成功</strong>
-            </h1>
-        </div>
-    </header>
+    <div class="w-full px-3 py-6 lg:max-w-6xl lg:mx-auto">
+        <div class="bg-white p-10 shadow rounded">
+            <div class="flex py-10 justify-center">
+                <div class="flex items-center">
+                    <div class="text-green-500 mr-5">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20" viewBox="0 0 20 20"
+                             fill="currentColor">
+                            <path fill-rule="evenodd"
+                                  d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                  clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div class="text-green-500 text-2xl">
+                        {{__('支付成功')}}
+                    </div>
+                </div>
+            </div>
 
-    <div class="container all-buy-box">
-        <div class="row justify-content-center">
-            <div class="col-sm-4 text-center" style="min-height: 400px;">
-                <p class="mt-5 mb-5 text-primary">
-                    <i class="fa fa-check fa-5x" aria-hidden="true"></i>
-                </p>
-                <p>订单号：{{$order->order_id}}</p>
-                <p>支付金额：￥{{$order->charge}}</p>
-                <p><a class="btn btn-primary" href="{{route('member.orders')}}">我的订单</a></p>
+            <div class="mt-10 flex justify-center">
+                <a href="{{route('member.orders')}}" class="text-blue-500">{{__('我的订单')}}</a>
             </div>
         </div>
     </div>

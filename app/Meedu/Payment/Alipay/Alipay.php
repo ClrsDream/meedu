@@ -4,74 +4,118 @@
  * This file is part of the Qsnh/meedu.
  *
  * (c) XiaoTeng <616896861@qq.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
  */
 
 namespace App\Meedu\Payment\Alipay;
 
 use Exception;
-use App\Models\Order;
 use Yansongda\Pay\Pay;
+use App\Businesses\BusinessState;
 use App\Events\PaymentSuccessEvent;
 use Illuminate\Support\Facades\Log;
 use App\Meedu\Payment\Contract\Payment;
 use App\Meedu\Payment\Contract\PaymentStatus;
+use App\Services\Base\Services\ConfigService;
+use App\Services\Order\Services\OrderService;
+use App\Services\Base\Interfaces\ConfigServiceInterface;
+use App\Services\Order\Interfaces\OrderServiceInterface;
 
 class Alipay implements Payment
 {
     /**
-     * 创建支付宝订单.
-     *
-     * @param Order $order
-     *
+     * @var ConfigService
+     */
+    protected $configService;
+    /**
+     * @var OrderService
+     */
+    protected $orderService;
+    protected $businessState;
+
+    public function __construct(
+        ConfigServiceInterface $configService,
+        OrderServiceInterface $orderService,
+        BusinessState $businessState
+    ) {
+        $this->configService = $configService;
+        $this->orderService = $orderService;
+        $this->businessState = $businessState;
+    }
+
+    /**
+     * @param array $order
+     * @param array $extra
      * @return PaymentStatus
      */
-    public function create(Order $order): PaymentStatus
+    public function create(array $order, array $extra = []): PaymentStatus
     {
+        // 计算需要支付的金额
+        $total = $this->businessState->calculateOrderNeedPaidSum($order);
+
+        // 组装数据
         $payOrderData = [
-            'out_trade_no' => $order->order_id,
-            'total_amount' => $order->charge,
-            'subject' => $order->getOrderListTitle(),
+            'out_trade_no' => $order['order_id'],
+            'total_amount' => $total,
+            'subject' => $order['order_id'],
         ];
-        $createResult = Pay::alipay(config('pay.alipay'))
-                           ->{$order->payment_method}($payOrderData);
+        $payOrderData = array_merge($payOrderData, $extra);
+
+        // 支付宝配置
+        $config = $this->configService->getAlipayPay();
+        // 回调地址
+        $config['notify_url'] = route('payment.callback', ['alipay']);
+        // 同步返回地址
+        $returnUrl = request()->input('redirect');
+        $returnUrl || $returnUrl = request()->input('s_url');
+        $returnUrl || $returnUrl = route('order.pay.success');
+        $config['return_url'] = $returnUrl;
+
+        // 创建支付宝支付订单
+        $createResult = Pay::alipay($config)->{$order['payment_method']}($payOrderData);
 
         return new PaymentStatus(true, $createResult);
     }
 
-    public function query(Order $order): PaymentStatus
+    /**
+     * 订单查询
+     *
+     * @param array $order
+     *
+     * @return PaymentStatus
+     */
+    public function query(array $order): PaymentStatus
     {
+        return new PaymentStatus(false);
     }
 
     public function callback()
     {
-        $pay = Pay::alipay(config('pay.alipay'));
+        $pay = Pay::alipay($this->configService->getAlipayPay());
 
         try {
             $data = $pay->verify();
-            Log::info($data);
 
-            $order = Order::whereOrderId($data['out_trade_no'])->firstOrFail();
+            Log::info(__METHOD__, [$data]);
+
+            $order = $this->orderService->findOrFail($data['out_trade_no']);
 
             event(new PaymentSuccessEvent($order));
+
+            return $pay->success();
         } catch (Exception $e) {
             exception_record($e);
-        }
 
-        return $pay->success();
+            return $e->getMessage();
+        }
     }
 
     /**
-     * 支付URL.
+     * @param array $order
      *
-     * @param Order $order
-     *
-     * @return mixed|string
+     * @return string
      */
-    public static function payUrl(Order $order): string
+    public static function payUrl(array $order): string
     {
-        return route('order.pay', [$order->order_id]);
+        return route('order.pay', [$order['order_id']]);
     }
 }

@@ -1,5 +1,11 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
+
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
@@ -21,6 +27,8 @@ class CreateUserJoinRoleRecordsTable extends Migration
             $table->timestamp('started_at')->nullable(true);
             $table->timestamp('expired_at')->nullable(true);
             $table->timestamps();
+
+            $table->engine = 'InnoDB';
         });
     }
 

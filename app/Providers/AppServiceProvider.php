@@ -4,20 +4,19 @@
  * This file is part of the Qsnh/meedu.
  *
  * (c) XiaoTeng <616896861@qq.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
  */
 
 namespace App\Providers;
 
-use Carbon\Carbon;
 use App\Meedu\Setting;
-use App\Models\CourseComment;
-use Laravel\Passport\Passport;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
-use App\Observers\CourseCommentObserver;
+use App\Services\Base\Providers\BaseServiceRegisterProvider;
+use App\Services\Order\Providers\OrderServiceRegisterProvider;
+use App\Services\Other\Providers\OtherServiceRegisterProvider;
+use App\Services\Course\Providers\CourseServiceRegisterProvider;
+use App\Services\Member\Providers\MemberServiceRegisterProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -26,17 +25,20 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        // 中文
-        Carbon::setLocale('zh');
         // 数据库
         Schema::defaultStringLength(191);
-        // 模型事件
-        CourseComment::observe(CourseCommentObserver::class);
-        // OAuth路由
-        Passport::routes();
         // 自定义配置同步
         $this->app->make(Setting::class)->sync();
+        // 多模板注册
         $this->registerViewNamespace();
+
+        // 日志链路配置
+        $requestId = Str::random(12);
+        $logger = $this->app->make('log');
+        $logger->pushProcessor(function ($record) use ($requestId) {
+            $record['extra']['request_id'] = $requestId;
+            return $record;
+        });
     }
 
     /**
@@ -44,9 +46,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        if ($this->app->environment(['dev'])) {
-            $this->app->register(\Barryvdh\LaravelIdeHelper\IdeHelperServiceProvider::class);
-        }
+        // 服务注册
+        $this->app->register(BaseServiceRegisterProvider::class);
+        $this->app->register(MemberServiceRegisterProvider::class);
+        $this->app->register(CourseServiceRegisterProvider::class);
+        $this->app->register(OtherServiceRegisterProvider::class);
+        $this->app->register(OrderServiceRegisterProvider::class);
     }
 
     /**

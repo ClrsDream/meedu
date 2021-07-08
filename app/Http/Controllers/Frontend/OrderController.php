@@ -4,142 +4,206 @@
  * This file is part of the Qsnh/meedu.
  *
  * (c) XiaoTeng <616896861@qq.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
  */
 
 namespace App\Http\Controllers\Frontend;
 
-use App\Models\Order;
+use App\Meedu\Wechat;
 use Illuminate\Http\Request;
-use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use App\Repositories\OrderRepository;
-use Illuminate\Support\Facades\Cache;
-use App\Meedu\Payment\Eshanghu\Eshanghu;
+use App\Constant\CacheConstant;
+use App\Businesses\BusinessState;
+use App\Exceptions\SystemException;
+use App\Exceptions\ServiceException;
+use App\Meedu\Payment\Wechat\WechatJSAPI;
+use App\Services\Base\Services\CacheService;
+use App\Services\Order\Services\OrderService;
+use App\Services\Base\Interfaces\CacheServiceInterface;
+use App\Services\Order\Interfaces\OrderServiceInterface;
 
-class OrderController extends Controller
+class OrderController extends FrontendController
 {
-    public function show($orderId)
-    {
-        $order = Auth::user()->orders()->whereOrderId($orderId)->firstOrFail();
-        if ($order->status == Order::STATUS_CANCELED) {
-            flash('该订单已取消');
-
-            return back();
-        }
-        if ($order->status == Order::STATUS_PAID) {
-            flash('该订单已支付', 'success');
-
-            return back();
-        }
-        if ($order->status == Order::STATUS_PAYING) {
-            $handler = config('meedu.payment.'.$order->payment.'.handler');
-
-            return redirect($handler::payUrl($order));
-        }
-        $payments = get_payments();
-
-        return v('frontend.order.show', compact('order', 'payments'));
-    }
+    /**
+     * @var OrderService
+     */
+    protected $orderService;
 
     /**
-     * 创建第三方支付订单.
-     *
-     * @param Request         $request
-     * @param OrderRepository $repository
-     * @param $orderId
-     *
-     * @return bool|\Illuminate\Http\RedirectResponse|mixed
+     * @var BusinessState
      */
-    public function pay(Request $request, OrderRepository $repository, $orderId)
-    {
-        $order = Auth::user()->orders()->whereOrderId($orderId)->firstOrFail();
-        if (in_array($order->status, [Order::STATUS_PAID, Order::STATUS_CANCELED])) {
-            flash('该订单已支付或已取消');
-
-            return back();
-        }
-
-        // 获取PC端能支付的网关
-        $payments = get_payments();
-        $payment = $order->payment ?: $request->post('payment');
-        if (! isset($payments[$payment])) {
-            flash('支付网关不存在');
-
-            return back();
-        }
-
-        $response = $repository->createRemoteOrder($order, $payment);
-        if ($response === false) {
-            flash('远程支付订单创建失败');
-
-            return back();
-        }
-
-        return $response;
-    }
+    protected $businessState;
 
     /**
-     * 支付成功返回界面.
-     *
-     * @param Request $request
-     *
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\View\View
+     * @var CacheService
      */
-    public function success(Request $request)
+    protected $cacheService;
+
+    public function __construct(
+        OrderServiceInterface $orderService,
+        BusinessState $businessState,
+        CacheServiceInterface $cacheService
+    ) {
+        parent::__construct();
+
+        $this->orderService = $orderService;
+        $this->businessState = $businessState;
+        $this->cacheService = $cacheService;
+    }
+
+    // 发起支付
+    public function pay(Request $request)
+    {
+        $orderId = $request->input('order_id');
+        $order = $this->orderService->findUserNoPaid($orderId);
+
+        $scene = $request->input('scene');
+        $payment = $request->input('payment');
+        if (!$payment) {
+            throw new ServiceException(__('支付网关不存在'));
+        }
+        $payments = get_payments($scene);
+        $paymentMethod = $payments[$payment][$scene] ?? '';
+        if (!$paymentMethod) {
+            throw new SystemException(__('支付网关不存在'));
+        }
+
+        // 更新订单的支付方式
+        $updateData = [
+            'payment' => $payment,
+            'payment_method' => $paymentMethod,
+        ];
+        $this->orderService->change2Paying($order['id'], $updateData);
+        $order = array_merge($order, $updateData);
+
+        // 创建远程订单
+        $paymentHandler = app()->make($payments[$payment]['handler']);
+        $createResult = $paymentHandler->create($order);
+        if ($createResult->status === false) {
+            throw new SystemException(__('系统错误'));
+        }
+
+        return $createResult->data;
+    }
+
+    // 支付成功界面
+    public function paySuccess(Request $request)
     {
         $orderId = $request->input('out_trade_no', '');
-        $order = Order::whereOrderId($orderId)->firstOrFail();
+        $order = $this->orderService->findUser($orderId);
 
         return v('frontend.order.success', compact('order'));
     }
 
-    /**
-     * 微信扫码支付.
-     *
-     * @param $orderId
-     *
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\Http\RedirectResponse|\Illuminate\Routing\Redirector|\Illuminate\View\View
-     */
-    public function wechat($orderId)
+    // 微信扫码支付界面
+    public function wechatScan($orderId)
     {
-        $order = Auth::user()->orders()->whereOrderId($orderId)->firstOrFail();
-        $wechatData = Cache::get(sprintf(config('cachekey.order.wechat_remote_order.name'), $order->order_id));
-        if (! $wechatData) {
-            $order->status = Order::STATUS_CANCELED;
-            $order->save();
+        $order = $this->orderService->findUser($orderId);
 
-            flash('参数丢失');
+        // 需支付金额
+        $needPaidTotal = $this->businessState->calculateOrderNeedPaidSum($order);
 
-            return redirect('/');
+        $wechatData = $this->cacheService->get(get_cache_key(CacheConstant::WECHAT_PAY_SCAN_RETURN_DATA['name'], $order['order_id']));
+        if (!$wechatData) {
+            $this->orderService->cancel($order['id']);
+
+            throw new ServiceException(__('错误'));
         }
+
         $qrcodeUrl = $wechatData['code_url'];
 
-        return v('frontend.order.wechat', compact('qrcodeUrl', 'order'));
+        $title = __('微信扫码支付');
+
+        return v('frontend.order.wechat', compact('qrcodeUrl', 'order', 'needPaidTotal', 'title'));
     }
 
-    /**
-     * 易商户重新支付.
-     *
-     * @param $orderId
-     *
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\Http\RedirectResponse|\Illuminate\Routing\Redirector|\Illuminate\View\View
-     */
-    public function eshanghu($orderId)
+    // 微信jsapi支付
+    public function wechatJSAPI(Request $request)
     {
-        $order = Auth::user()->orders()->whereOrderId($orderId)->firstOrFail();
-        $codeUrl = Cache::get(sprintf(Eshanghu::CACHE_KEY, $order->order_id));
-        if (! $codeUrl) {
-            $order->status = Order::STATUS_CANCELED;
-            $order->save();
+        // 跳转地址
+        $sUrl = $request->input('s_url');
+        $fUrl = $request->input('f_url');
 
-            flash('该订单已过期，请重新下单。');
-
-            return redirect('/');
+        $data = $request->input('data');
+        if (!$data) {
+            throw new ServiceException(__('参数错误'));
+        }
+        try {
+            // 解密数据
+            $decryptData = decrypt($data);
+            // 获取orderId
+            $orderId = $decryptData['order_id'];
+        } catch (\Exception $e) {
+            throw new ServiceException(__('参数错误'));
         }
 
-        return v('frontend.payment.eshanghu', compact('codeUrl', 'order'));
+        $openid = null;
+
+        // 微信授权登录回调后
+        if ($request->has('oauth')) {
+            $user = Wechat::getInstance()->oauth->user();
+            $openid = $user->getId();
+            // 存储到session中
+            session(['wechat_jsapi_openid' => $openid]);
+        }
+
+        $openid || $openid = session('wechat_jsapi_openid');
+        if (!$openid) {
+            // 微信授权登录获取openid
+            $redirect = url_append_query(
+                route('order.pay.wechat.jsapi', $orderId),
+                [
+                    'oauth' => 1,
+                    'data' => $data,
+                    's_url' => $sUrl,
+                    'f_url' => $fUrl,
+                ]
+            );
+            return Wechat::getInstance()->oauth->redirect($redirect);
+        }
+
+        // 订单
+        $order = $this->orderService->findOrFail($orderId);
+
+        // 创建微信支付订单
+        /**
+         * @var WechatJSAPI $jsapi
+         */
+        $jsapi = app()->make(WechatJSAPI::class);
+
+        // 创建微信支付订单
+        $data = $jsapi->createDirect($order, $openid);
+
+        // 页面标题
+        $title = __('微信JSAPI支付');
+
+        return v('h5.order.wechat-jsapi-pay', compact('order', 'title', 'data'));
+    }
+
+    // 手动支付界面
+    public function handPay(Request $request)
+    {
+        $data = $request->input('data');
+        if (!$data) {
+            throw new ServiceException(__('参数错误'));
+        }
+        try {
+            // 解密数据
+            $decryptData = decrypt($data);
+            // 获取orderId
+            $orderId = $decryptData['order_id'];
+        } catch (\Exception $e) {
+            throw new ServiceException(__('参数错误'));
+        }
+
+        // 订单
+        $order = $this->orderService->findOrFail($orderId);
+        // 需支付金额
+        $needPaidTotal = $this->businessState->calculateOrderNeedPaidSum($order);
+
+        // 手动支付内容
+        $intro = $this->configService->getHandPayIntroducation();
+
+        $title = __('手动打款支付');
+
+        return v('frontend.order.hand_pay', compact('order', 'intro', 'needPaidTotal', 'title'));
     }
 }

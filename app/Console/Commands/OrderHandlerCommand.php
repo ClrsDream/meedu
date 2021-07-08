@@ -4,18 +4,15 @@
  * This file is part of the Qsnh/meedu.
  *
  * (c) XiaoTeng <616896861@qq.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
  */
 
 namespace App\Console\Commands;
 
-use Exception;
-use App\Models\Order;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
-use App\Notifications\SimpleMessageNotification;
+use App\Businesses\BusinessState;
+use App\Events\PaymentSuccessEvent;
+use App\Services\Order\Services\OrderService;
+use App\Services\Order\Interfaces\OrderServiceInterface;
 
 class OrderHandlerCommand extends Command
 {
@@ -31,55 +28,42 @@ class OrderHandlerCommand extends Command
      *
      * @var string
      */
-    protected $description = 'order handler tool.';
+    protected $description = '订单改为已支付';
 
     /**
-     * Create a new command instance.
+     * @var OrderService
      */
-    public function __construct()
+    protected $orderService;
+
+    protected $businessState;
+
+    /**
+     * OrderHandlerCommand constructor.
+     *
+     * @param OrderServiceInterface $orderService
+     * @param BusinessState $businessState
+     */
+    public function __construct(OrderServiceInterface $orderService, BusinessState $businessState)
     {
         parent::__construct();
+        $this->orderService = $orderService;
+        $this->businessState = $businessState;
     }
 
     /**
-     * Execute the console command.
-     *
-     * @return mixed
+     * @throws \Throwable
      */
     public function handle()
     {
         $orderId = $this->argument('order_id');
-        $order = Order::whereOrderId($orderId)->first();
-        if (! $order) {
-            $this->warn('订单不存在');
-
-            return;
-        }
-        if ($order->status == Order::STATUS_PAID) {
-            $this->warn('该订单已支付');
+        $order = $this->orderService->findOrFail($orderId);
+        if ($this->businessState->orderIsPaid($order)) {
+            $this->warn('order has paid.');
 
             return;
         }
 
-        DB::beginTransaction();
-        try {
-            // 修改订单状态
-            $order->status = Order::STATUS_PAID;
-            $order->save();
-
-            // 商品归属
-            $order->user->handlerOrderSuccess($order);
-
-            // 消息通知
-            $order->user->notify(new SimpleMessageNotification($order->getNotificationContent()));
-
-            DB::commit();
-
-            $this->line('处理成功');
-        } catch (Exception $exception) {
-            DB::rollBack();
-            exception_record($exception);
-            $this->warn($exception->getMessage());
-        }
+        event(new PaymentSuccessEvent($order));
+        $this->line('success');
     }
 }

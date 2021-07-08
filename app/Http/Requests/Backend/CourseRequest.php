@@ -4,18 +4,14 @@
  * This file is part of the Qsnh/meedu.
  *
  * (c) XiaoTeng <616896861@qq.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
  */
 
 namespace App\Http\Requests\Backend;
 
-use App\Models\Course;
 use Overtrue\Pinyin\Pinyin;
-use Illuminate\Foundation\Http\FormRequest;
+use App\Services\Course\Models\Course;
 
-class CourseRequest extends FormRequest
+class CourseRequest extends BaseRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -38,20 +34,21 @@ class CourseRequest extends FormRequest
             'title' => 'required|max:120',
             'thumb' => 'required',
             'short_description' => 'required',
-            'description' => 'required',
+            'original_desc' => 'required',
             'published_at' => 'required',
+            'category_id' => 'required',
         ];
     }
 
     public function messages()
     {
         return [
-            'title.required' => '请输入课程标题',
-            'title.max' => '课程标题的长度不能超过120个字符',
-            'thumb.required' => '请上传课程封面',
-            'short_description.required' => '请输入课程的简短介绍',
-            'description.required' => '请输入课程详情介绍',
-            'published_at' => '请输入课程发布时间',
+            'title.required' => __('请输入点播课程标题'),
+            'title.max' => __('课程标题的长度不能超过:size个字符', ['size' => 120]),
+            'thumb.required' => __('请上传课程封面'),
+            'short_description.required' => __('请输入课程的简短介绍'),
+            'original_desc.required' => __('请输入课程详情介绍'),
+            'published_at' => __('请选择课程发布时间'),
         ];
     }
 
@@ -59,18 +56,23 @@ class CourseRequest extends FormRequest
     {
         $data = [
             'user_id' => $this->input('user_id', 0),
+            'category_id' => $this->input('category_id'),
             'title' => $this->input('title'),
+            'slug' => $this->input('slug'),
             'thumb' => $this->input('thumb'),
             'charge' => $this->input('charge', 0),
             'short_description' => $this->input('short_description'),
-            'description' => $this->input('description'),
-            'seo_keywords' => $this->input('seo_keywords', ''),
-            'seo_description' => $this->input('seo_description', ''),
+            'original_desc' => $this->input('original_desc'),
+            'render_desc' => $this->input('render_desc'),
+            'seo_keywords' => (string)$this->input('seo_keywords', ''),
+            'seo_description' => (string)$this->input('seo_description', ''),
             'published_at' => $this->input('published_at'),
-            'is_show' => $this->input('is_show', Course::SHOW_NO),
+            'is_show' => (int)$this->input('is_show', Course::SHOW_NO),
+            'is_rec' => (int)$this->input('is_rec', Course::REC_NO),
+            'comment_status' => (int)$this->input('comment_status', Course::COMMENT_STATUS_CLOSE),
         ];
 
-        if ($this->isMethod('post')) {
+        if ($this->isMethod('post') && !$data['slug']) {
             $slug = implode('-', (new Pinyin())->convert($this->input('title')));
             $data['slug'] = $slug;
         }

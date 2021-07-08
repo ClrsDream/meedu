@@ -1,17 +1,16 @@
 <?php
-/**
- * Created by PhpStorm.
- * User: xiaoteng
- * Date: 2018/10/9
- * Time: 15:24
+
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
  */
 
 namespace Tests;
 
-use Illuminate\Foundation\Testing\DatabaseMigrations;
-use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-class OriginalTestCase extends BaseTestCase
+abstract class OriginalTestCase extends \Illuminate\Foundation\Testing\TestCase
 {
-    use CreatesApplication, DatabaseMigrations;
+    use CreatesApplication, RefreshDatabase;
 }

@@ -1,5 +1,11 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
+
 return [
 
     /*
@@ -78,7 +84,7 @@ return [
     |
     */
 
-    'locale' => 'zh',
+    'locale' => env('APP_LANG', 'zh'),
 
     /*
     |--------------------------------------------------------------------------
@@ -91,7 +97,7 @@ return [
     |
     */
 
-    'fallback_locale' => 'en',
+    'fallback_locale' => 'zh',
 
     /*
     |--------------------------------------------------------------------------
@@ -177,11 +183,13 @@ return [
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
 
+        // 埋点服务
+        \App\Providers\HooksRegisterProvider::class,
+
         // Third
         Mews\Captcha\CaptchaServiceProvider::class,
-        \Spatie\Backup\BackupServiceProvider::class,
-        HyanCat\DirectMail\AliyunDirectMailServiceProvider::class,
         \SocialiteProviders\Manager\ServiceProvider::class,
+        Tymon\JWTAuth\Providers\LaravelServiceProvider::class,
     ],
 
     /*
@@ -233,6 +241,8 @@ return [
 
         // Third
         'Captcha' => Mews\Captcha\Facades\Captcha::class,
+        'JWTAuth' => 'Tymon\JWTAuth\Facades\JWTAuth',
+        'JWTFactory' => 'Tymon\JWTAuth\Facades\JWTFactory',
     ],
 
 ];

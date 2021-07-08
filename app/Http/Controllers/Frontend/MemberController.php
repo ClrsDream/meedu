@@ -4,216 +4,404 @@
  * This file is part of the Qsnh/meedu.
  *
  * (c) XiaoTeng <616896861@qq.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
  */
 
 namespace App\Http\Controllers\Frontend;
 
-use App\Models\Announcement;
+use App\Bus\WechatBindBus;
+use Illuminate\Http\Request;
+use App\Businesses\BusinessState;
+use App\Exceptions\ServiceException;
 use Illuminate\Support\Facades\Auth;
-use App\Repositories\MemberRepository;
+use Laravel\Socialite\Facades\Socialite;
+use App\Services\Member\Services\RoleService;
+use App\Services\Member\Services\UserService;
+use App\Services\Order\Services\OrderService;
+use App\Services\Course\Services\VideoService;
+use App\Services\Course\Services\CourseService;
+use App\Services\Member\Services\CreditService;
+use App\Services\Order\Services\PromoCodeService;
+use App\Services\Member\Services\SocialiteService;
 use App\Http\Requests\Frontend\Member\MobileBindRequest;
-use App\Http\Requests\Frontend\Member\AvatarChangeRequest;
-use App\Http\Requests\Frontend\Member\MemberPasswordResetRequest;
+use App\Services\Member\Interfaces\RoleServiceInterface;
+use App\Services\Member\Interfaces\UserServiceInterface;
+use App\Services\Order\Interfaces\OrderServiceInterface;
+use App\Services\Course\Interfaces\VideoServiceInterface;
+use App\Services\Course\Interfaces\CourseServiceInterface;
+use App\Services\Member\Interfaces\CreditServiceInterface;
+use App\Services\Member\Services\UserInviteBalanceService;
+use App\Services\Order\Interfaces\PromoCodeServiceInterface;
+use App\Services\Member\Interfaces\SocialiteServiceInterface;
+use App\Services\Member\Interfaces\UserInviteBalanceServiceInterface;
 
 class MemberController extends FrontendController
 {
-    public function index()
-    {
-        $announcement = Announcement::recentAnnouncement();
-        $videos = Auth::user()->buyVideos()->orderByDesc('pivot_created_at')->limit(10)->get();
-        $title = '会员中心';
+    /**
+     * @var UserService
+     */
+    protected $userService;
+    /**
+     * @var BusinessState
+     */
+    protected $businessState;
 
-        return v('frontend.member.index', compact('announcement', 'videos', 'title'));
+    public function __construct(
+        UserServiceInterface $userService,
+        BusinessState $businessState
+    ) {
+        parent::__construct();
+
+        $this->userService = $userService;
+        $this->businessState = $businessState;
     }
 
-    public function showPasswordResetPage()
+    public function index(SocialiteServiceInterface $socialiteService)
     {
-        $title = '修改密码';
+        /**
+         * @var SocialiteService $socialiteService
+         */
 
-        return v('frontend.member.password_reset', compact('title'));
+        $title = __('会员中心');
+
+        $courseCount = $this->userService->getUserCourseCount($this->id());
+        $videoCount = $this->userService->getUserVideoCount($this->id());
+
+        // 社交登录账号
+        $apps = $socialiteService->userSocialites($this->id());
+        $apps = array_column($apps, null, 'app');
+
+        // 邀请人数
+        $inviteCount = $this->userService->inviteCount($this->id());
+
+        return v('frontend.member.index', compact('title', 'courseCount', 'videoCount', 'apps', 'inviteCount'));
     }
 
+    // 手机号绑定[界面]
     public function showMobileBindPage()
     {
-        $title = '绑定手机号';
+        $title = __('绑定手机号');
 
         return v('frontend.member.mobile_bind', compact('title'));
     }
 
+    // 手机号绑定[提交]
     public function mobileBindHandler(MobileBindRequest $request)
     {
-        $user = \auth()->user();
-        if ($user->isBindMobile()) {
-            flash('当前账户已绑定手机号，请勿重复绑定');
+        ['mobile' => $mobile] = $request->filldata();
 
-            return back();
-        }
-        $user->fill($request->filldata())->save();
-        flash('绑定成功', 'success');
+        $this->userService->bindMobile($mobile, $this->id());
+
+        flash(__('成功'), 'success');
 
         return redirect(route('member'));
     }
 
-    /**
-     * 密码修改.
-     *
-     * @param MemberPasswordResetRequest $request
-     * @param MemberRepository           $repository
-     *
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function passwordResetHandler(MemberPasswordResetRequest $request, MemberRepository $repository)
+    // VIP会员购买记录
+    public function showJoinRoleRecordsPage(RoleServiceInterface $roleService, Request $request)
     {
-        [$oldPassword, $newPassword] = $request->filldata();
-        if (! $repository->passwordChangeHandler($oldPassword, $newPassword)) {
-            flash($repository->errors);
-        } else {
-            flash('密码修改成功', 'success');
-        }
+        /**
+         * @var RoleService $roleService
+         */
 
-        return back();
-    }
+        $page = $request->input('page', 1);
+        $pageSize = 10;
 
-    public function showAvatarChangePage()
-    {
-        $title = '更换头像';
+        [
+            'total' => $total,
+            'list' => $list,
+        ] = $roleService->userRolePaginate($page, $pageSize);
 
-        return v('frontend.member.avatar', compact('title'));
-    }
+        $records = $this->paginator($list, $total, $page, $pageSize);
 
-    /**
-     * 头像更换.
-     *
-     * @param AvatarChangeRequest $request
-     * @param MemberRepository    $repository
-     *
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function avatarChangeHandler(AvatarChangeRequest $request, MemberRepository $repository)
-    {
-        [$path, $url] = $request->filldata();
-        $repository->avatarChangeHandler(Auth::user(), $url);
-        flash('头像更换成功', 'success');
-
-        return back();
-    }
-
-    /**
-     * 会员订阅界面.
-     *
-     * @param MemberRepository $repository
-     *
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\View\View
-     */
-    public function showJoinRoleRecordsPage(MemberRepository $repository)
-    {
-        $records = $repository->roleBuyRecords();
-        $title = 'VIP会员记录';
+        $title = __('VIP记录');
 
         return v('frontend.member.join_role_records', compact('records', 'title'));
     }
 
-    /**
-     * 我的消息页面.
-     *
-     * @param MemberRepository $repository
-     *
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\View\View
-     */
-    public function showMessagesPage(MemberRepository $repository)
+    // 我的消息
+    public function showMessagesPage(Request $request)
     {
-        $messages = $repository->messages();
-        $title = '我的消息';
+        $page = $request->input('page', 1);
+        $pageSize = 10;
+
+        [
+            'total' => $total,
+            'list' => $list,
+        ] = $this->userService->messagePaginate($page, $pageSize);
+
+        $messages = $this->paginator($list, $total, $page, $pageSize);
+
+        $title = __('我的消息');
 
         return v('frontend.member.messages', compact('messages', 'title'));
     }
 
-    /**
-     * 已购买课程页面.
-     *
-     * @param MemberRepository $repository
-     *
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\View\View
-     */
-    public function showBuyCoursePage(MemberRepository $repository)
+    // 我的课程
+    public function showBuyCoursePage(CourseServiceInterface $courseService, VideoServiceInterface $videoService, Request $request)
     {
-        $courses = $repository->buyCourses();
-        $title = '我的购买的课程';
+        /**
+         * @var CourseService $courseService
+         */
+        /**
+         * @var VideoService $videoService
+         */
 
-        return v('frontend.member.buy_course', compact('courses', 'title'));
+        $page = $request->input('page', 1);
+        $scene = $request->input('scene');
+        $pageSize = 12;
+
+        if (!$scene) {
+            [
+                'total' => $total,
+                'list' => $list,
+            ] = $this->userService->getUserBuyCourses($page, $pageSize);
+            $courses = $courseService->getList(array_column($list, 'course_id'));
+            $courses = array_column($courses, null, 'id');
+        } elseif ($scene === 'history') {
+            // 学习历史
+            [
+                'total' => $total,
+                'list' => $list,
+            ] = $courseService->userLearningCoursesPaginate($this->id(), $page, $pageSize);
+            $courses = $courseService->getList(array_column($list, 'course_id'));
+            $courses = array_column($courses, null, 'id');
+        } elseif ($scene === 'like') {
+            // 我的收藏
+            [
+                'total' => $total,
+                'list' => $list,
+            ] = $this->userService->userLikeCoursesPaginate($this->id(), $page, $pageSize);
+            $courses = $courseService->getList(array_column($list, 'course_id'));
+            $courses = array_column($courses, null, 'id');
+        } else {
+            // 购买的视频
+            $videoIds = $this->userService->getUserBuyAllVideosId();
+            $videos = $videoService->getList($videoIds);
+            $courses = $courseService->getList(array_column($videos, 'course_id'));
+            $courses = array_column($courses, null, 'id');
+            $list = collect($videos)->groupBy('course_id')->toArray();
+            $total = count($list);
+        }
+
+        $records = $this->paginator($list, $total, $page, $pageSize);
+        $records->appends([
+            'scene' => $scene,
+        ]);
+
+        $title = __('点播课程');
+
+        return v('frontend.member.vod_courses', compact('records', 'title', 'courses', 'scene'));
     }
 
-    /**
-     * 已购买视频界面.
-     *
-     * @param MemberRepository $repository
-     *
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\View\View
-     */
-    public function showBuyVideoPage(MemberRepository $repository)
+    // 我的视频
+    public function showBuyVideoPage(VideoServiceInterface $videoService, Request $request)
     {
-        $videos = $repository->buyVideos();
-        $title = '我购买的视频';
+        /**
+         * @var VideoService $videoService
+         */
 
-        return v('frontend.member.buy_video', compact('videos', 'title'));
+        $page = $request->input('page', 1);
+        $pageSize = 10;
+        [
+            'total' => $total,
+            'list' => $list,
+        ] = $this->userService->getUserBuyVideos($page, $pageSize);
+        $records = $this->paginator($list, $total, $page, $pageSize);
+
+        // 本次查询出来的video
+        $videos = $videoService->getList(array_column($list, 'video_id'));
+        $videos = array_column($videos, null, 'id');
+
+        $title = __('点播视频');
+
+        return v('frontend.member.vod_videos', compact('videos', 'title', 'records'));
     }
 
-    /**
-     * 充值记录界面.
-     *
-     * @param MemberRepository $repository
-     *
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\View\View
-     */
-    public function showRechargeRecordsPage(MemberRepository $repository)
+    // 我的订单
+    public function showOrdersPage(OrderServiceInterface $orderService, Request $request)
     {
-        $records = $repository->rechargeRecords();
-        $title = '我的充值记录';
+        /**
+         * @var OrderService $orderService
+         */
 
-        return v('frontend.member.show_recharge_records', compact('records', 'title'));
+        $page = $request->input('page', 1);
+        $pageSize = 10;
+
+        [
+            'total' => $total,
+            'list' => $list,
+        ] = $orderService->userOrdersPaginate($page, $pageSize);
+
+        $orders = $this->paginator($list, $total, $page, $pageSize);
+
+        $title = __('我的订单');
+
+        return v('frontend.member.orders', compact('orders', 'title'));
     }
 
-    /**
-     * 我的订单界面.
-     *
-     * @param MemberRepository $repository
-     *
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\View\View
-     */
-    public function showOrdersPage(MemberRepository $repository)
+    // 社交登录[绑定操作]
+    public function socialiteBind($app)
     {
-        $orders = $repository->orders();
-        $title = '我的订单';
-
-        return v('frontend.member.show_orders', compact('orders', 'title'));
+        $redirectUrl = route('member.socialite.bind.callback', [$app]);
+        return Socialite::driver($app)->redirectUrl($redirectUrl)->redirect();
     }
 
-    /**
-     * 显示我的电子书界面.
-     *
-     * @param MemberRepository $repository
-     *
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\View\View
-     */
-    public function showBooksPage(MemberRepository $repository)
+    // 社交登录[绑定回调]
+    public function socialiteBindCallback(SocialiteServiceInterface $socialiteService, BusinessState $businessState, $app)
     {
-        $books = $repository->buyBooks();
+        /**
+         * @var SocialiteService $socialiteService
+         */
 
-        return v('frontend.member.show_books', compact('books'));
+        $redirectUrl = route('member.socialite.bind.callback', [$app]);
+        $user = Socialite::driver($app)->redirectUrl($redirectUrl)->user();
+        $appId = $user->getId();
+
+        try {
+            $businessState->socialiteBindCheck($this->id(), $app, $appId);
+
+            $socialiteService->bindApp($this->id(), $app, $appId, (array)$user);
+
+            flash(__('成功'), 'success');
+
+            return redirect(route('member'));
+        } catch (ServiceException $exception) {
+            flash($exception->getMessage(), 'error');
+            return redirect(route('member'));
+        } catch (\Exception $e) {
+            exception_record($e);
+            abort(500);
+        }
     }
 
-    /**
-     * 显示第三方登录界面.
-     *
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\View\View
-     */
-    public function showSocialitePage()
+    // 社交登录[取消绑定]
+    public function cancelBindSocialite(SocialiteServiceInterface $socialiteService, $app)
     {
-        $apps = Auth::user()->socialite()->get();
+        $socialiteService->cancelBind($app, $this->id());
 
-        return v('frontend.member.socialite', compact('apps'));
+        flash(__('成功'), 'success');
+
+        return back();
+    }
+
+    // 我的邀请码[界面]
+    public function showPromoCodePage(
+        PromoCodeServiceInterface $promoCodeService,
+        UserInviteBalanceServiceInterface $inviteBalanceService,
+        Request $request
+    ) {
+        /**
+         * @var PromoCodeService $promoCodeService
+         */
+        /**
+         * @var UserInviteBalanceService $inviteBalanceService
+         */
+
+        $scene = $request->input('scene');
+        $page = abs((int)$request->input('page', 1));
+        $pageSize = 10;
+
+        // 当前用户邀请码
+        $userPromoCode = $promoCodeService->userPromoCode();
+        if (!$userPromoCode && $this->businessState->canGenerateInviteCode($this->user())) {
+            // 如果可以生成邀请码的话则直接创建邀请码
+            $promoCodeService->userCreate($this->user());
+            $userPromoCode = $promoCodeService->userPromoCode();
+        }
+
+        // 邀请人数
+        $inviteCount = $this->userService->inviteCount($this->id());
+
+        $inviteUsers = [];
+        $balanceRecords = [];
+        $withdrawOrders = [];
+
+        if (!$scene) {
+            // 邀请记录
+            [
+                'list' => $list,
+                'total' => $total,
+            ] = $this->userService->inviteUsers($page, $pageSize);
+            $inviteUsers = $this->paginator($list, $total, $page, $pageSize);
+            $inviteUsers->appends($request->all());
+        } elseif ($scene === 'records') {
+            // 余额明细
+            [
+                'list' => $list,
+                'total' => $total,
+            ] = $inviteBalanceService->simplePaginate($page, $pageSize);
+            $balanceRecords = $this->paginator($list, $total, $page, $pageSize);
+            $balanceRecords->appends($request->all());
+        } elseif ($scene === 'withdraw') {
+            // 提现记录
+            [
+                'list' => $list,
+                'total' => $total,
+            ] = $inviteBalanceService->currentUserOrderPaginate($page, $pageSize);
+            $withdrawOrders = $this->paginator($list, $total, $page, $pageSize);
+            $withdrawOrders->appends($request->all());
+        }
+
+        $inviteConfig = $this->configService->getMemberInviteConfig();
+
+        $title = __('我的邀请码');
+
+        return v('frontend.member.promo_code', compact(
+            'userPromoCode',
+            'title',
+            'inviteUsers',
+            'scene',
+            'balanceRecords',
+            'withdrawOrders',
+            'inviteCount',
+            'inviteConfig'
+        ));
+    }
+
+    // 积分记录
+    public function credit1Records(Request $request, CreditServiceInterface $creditService)
+    {
+        /**
+         * @var CreditService $creditService
+         */
+        $page = $request->input('page', 1);
+        $pageSize = 10;
+
+        $list = $creditService->getCredit1RecordsPaginate($this->id(), $page, $pageSize);
+        $total = $creditService->getCredit1RecordsCount($this->id());
+
+        $records = $this->paginator($list, $total, $page, $pageSize);
+
+        $title = __('我的积分');
+
+        return v('frontend.member.credit1_records', compact('title', 'records'));
+    }
+
+    // 我的资料
+    public function showProfilePage()
+    {
+        $profile = $this->userService->getProfile($this->id());
+
+        $title = __('我的资料编辑');
+
+        return v('frontend.member.profile', compact('profile', 'title'));
+    }
+
+    // 安全退出
+    public function logout()
+    {
+        Auth::logout();
+        flash(__('成功'), 'success');
+        return redirect(url('/'));
+    }
+
+    public function showWechatBind(WechatBindBus $bus)
+    {
+        $title = __('微信账号绑定');
+
+        // 生成登录二维码
+        ['code' => $code, 'image' => $image] = $bus->qrcode($this->id());
+
+        return v('frontend.member.wechat_bind', compact('title', 'code', 'image'));
     }
 }

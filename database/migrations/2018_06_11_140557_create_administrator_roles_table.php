@@ -1,5 +1,11 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
+
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
@@ -19,6 +25,8 @@ class CreateAdministratorRolesTable extends Migration
             $table->string('slug')->comment('slug');
             $table->string('description')->comment('角色描述');
             $table->timestamps();
+
+            $table->engine = 'InnoDB';
         });
     }
 

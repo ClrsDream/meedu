@@ -1,23 +1,22 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
 
 namespace Tests\Commands;
 
-
-use App\Models\Administrator;
-use App\Models\AdministratorMenu;
-use App\Models\AdministratorPermission;
-use App\Models\AdministratorRole;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
-use Illuminate\Foundation\Testing\TestCase;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Tests\CreatesApplication;
+use Tests\OriginalTestCase;
+use App\Models\Administrator;
+use App\Models\AdministratorRole;
+use Illuminate\Support\Facades\Hash;
+use App\Models\AdministratorPermission;
 
-class ApplicationInstallCommandTest extends TestCase
+class ApplicationInstallCommandTest extends OriginalTestCase
 {
-    use CreatesApplication, DatabaseMigrations;
-
     public function test_install_administrator()
     {
         $this->artisan('install', ['action' => 'administrator'])
@@ -32,13 +31,13 @@ class ApplicationInstallCommandTest extends TestCase
             'description' => '描述',
         ]);
 
-        $email = Str::random().'@gmail.com';
+        $email = Str::random() . '@gmail.com';
         $password = '123456';
 
         $this->artisan('install', ['action' => 'administrator'])
-            ->expectsQuestion('请输入邮箱:', $email)
-            ->expectsQuestion('请输入密码:', $password)
-            ->expectsQuestion('请再输入一次:', $password)
+            ->expectsQuestion('请输入邮箱(默认：meedu@meedu.meedu):', $email)
+            ->expectsQuestion('请输入密码(默认：meedu123):', $password)
+            ->expectsQuestion('请再输入一次(默认：meedu123):', $password)
             ->expectsOutput('管理员初始化成功.')
             ->assertExitCode(0);
 
@@ -48,19 +47,6 @@ class ApplicationInstallCommandTest extends TestCase
         $this->assertNotNull($adms);
         // 密码正确
         $this->assertTrue(Hash::check($password, $adms->password));
-    }
-
-    public function test_install_administrator_and_empty_email()
-    {
-        AdministratorRole::create([
-            'display_name' => '小滕测试',
-            'slug' => config('meedu.administrator.super_slug'),
-            'description' => '描述',
-        ]);
-
-        $this->artisan('install', ['action' => 'administrator'])
-            ->expectsQuestion('请输入邮箱:', '')
-            ->expectsOutput('邮箱不能空');
     }
 
     // 在执行install administrator的时候
@@ -74,7 +60,7 @@ class ApplicationInstallCommandTest extends TestCase
             'description' => '描述',
         ]);
 
-        $email = Str::random().'@gmail.com';
+        $email = Str::random() . '@gmail.com';
         $password = '123456';
 
         Administrator::create([
@@ -84,7 +70,7 @@ class ApplicationInstallCommandTest extends TestCase
         ]);
 
         $this->artisan('install', ['action' => 'administrator'])
-            ->expectsQuestion('请输入邮箱:', $email)
+            ->expectsQuestion('请输入邮箱(默认：meedu@meedu.meedu):', $email)
             ->expectsOutput('邮箱已经存在');
     }
 
@@ -96,13 +82,13 @@ class ApplicationInstallCommandTest extends TestCase
             'description' => '描述',
         ]);
 
-        $email = Str::random().'@gmail.com';
+        $email = Str::random() . '@gmail.com';
         $password = '123456';
 
         $this->artisan('install', ['action' => 'administrator'])
-            ->expectsQuestion('请输入邮箱:', $email)
-            ->expectsQuestion('请输入密码:', $password)
-            ->expectsQuestion('请再输入一次:', Str::random())
+            ->expectsQuestion('请输入邮箱(默认：meedu@meedu.meedu):', $email)
+            ->expectsQuestion('请输入密码(默认：meedu123):', $password)
+            ->expectsQuestion('请再输入一次(默认：meedu123):', Str::random())
             ->expectsOutput('两次输入密码不一致.');
     }
 
@@ -125,14 +111,4 @@ class ApplicationInstallCommandTest extends TestCase
         $count = AdministratorPermission::count();
         $this->assertGreaterThan(0, $count);
     }
-
-    public function test_install_backend_menu()
-    {
-        $this->artisan('install', ['action' => 'backend_menu'])
-            ->assertExitCode(0);
-
-        $count = AdministratorMenu::count();
-        $this->assertGreaterThan(0, $count);
-    }
-
 }

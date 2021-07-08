@@ -1,5 +1,11 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
+
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
@@ -27,6 +33,6 @@ class AddIsShowColumnForRolesTable extends Migration
     {
         Schema::table('roles', function (Blueprint $table) {
             $table->dropColumn('is_show');
-    });
+        });
     }
 }

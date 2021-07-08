@@ -4,16 +4,11 @@
  * This file is part of the Qsnh/meedu.
  *
  * (c) XiaoTeng <616896861@qq.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
  */
 
 namespace App\Http\Requests\Backend;
 
-use Illuminate\Foundation\Http\FormRequest;
-
-class CourseChapterRequest extends FormRequest
+class CourseChapterRequest extends BaseRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -40,7 +35,7 @@ class CourseChapterRequest extends FormRequest
     public function messages()
     {
         return [
-            'title.required' => '请输入章节名',
+            'title.required' => __('请输入章节名'),
         ];
     }
 

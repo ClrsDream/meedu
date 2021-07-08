@@ -1,5 +1,11 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
+
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
@@ -19,6 +25,8 @@ class CreateAdFromNumberTable extends Migration
             $table->date('day');
             $table->integer('num');
             $table->timestamps();
+
+            $table->engine = 'InnoDB';
         });
     }
 

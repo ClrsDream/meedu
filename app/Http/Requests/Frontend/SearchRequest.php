@@ -4,9 +4,6 @@
  * This file is part of the Qsnh/meedu.
  *
  * (c) XiaoTeng <616896861@qq.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
  */
 
 namespace App\Http\Requests\Frontend;
@@ -25,22 +22,22 @@ class SearchRequest extends FormRequest
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array
-     */
     public function rules()
     {
-        return [
-            'keywords' => 'required',
-        ];
+        return [];
     }
 
     public function messages()
     {
         return [
-            'keywords.required' => '请输入搜索关键字',
+            'keywords.required' => __('请输入搜索关键字'),
+        ];
+    }
+
+    public function filldata()
+    {
+        return [
+            'keywords' => $this->input('keywords'),
         ];
     }
 }

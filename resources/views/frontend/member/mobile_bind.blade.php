@@ -1,21 +1,19 @@
-@extends('layouts.member')
+@extends('frontend.layouts.app')
 
-@section('member')
+@section('content')
 
-    <div class="container">
-        <div class="row">
-            <div class="col-sm-12">
-                <form class="card" method="post" action="">
+    <div class="w-full px-3 py-10 lg:max-w-6xl lg:mx-auto">
+        <div class="flex justify-center">
+            <div class="w-full lg:w-96 bg-white p-5 shadow rounded">
+                <form method="post" action="">
                     @csrf
-                    <h4 class="card-title"><strong>绑定手机号</strong></h4>
-
-                    <div class="card-body">
-                        @include('components.frontend.mobile_captcha', ['smsCaptchaKey' => 'mobile_bind'])
+                    @include('frontend.components.mobile', ['smsCaptchaKey' => 'mobile_bind'])
+                    <div>
+                        <button type="submit"
+                                class="w-full rounded py-3 bg-blue-600 text-white text-center text-base hover:bg-blue-500">
+                            {{__('绑定手机号')}}
+                        </button>
                     </div>
-
-                    <footer class="card-footer text-right">
-                        <button class="btn btn-primary" type="submit">确认绑定此手机号</button>
-                    </footer>
                 </form>
             </div>
         </div>

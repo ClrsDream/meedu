@@ -1,21 +1,20 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
 
 namespace Tests\Commands;
 
-
-use App\Models\Order;
 use Carbon\Carbon;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
-use Illuminate\Foundation\Testing\TestCase;
 use Illuminate\Support\Str;
-use Tests\CreatesApplication;
+use Tests\OriginalTestCase;
+use App\Services\Order\Models\Order;
 
-class OrderPayTimeoutCommandTest extends TestCase
+class OrderPayTimeoutCommandTest extends OriginalTestCase
 {
-
-    use CreatesApplication, DatabaseMigrations;
-
     public function test_order_pay_timeout()
     {
         $this->artisan('order:pay:timeout')
@@ -61,5 +60,4 @@ class OrderPayTimeoutCommandTest extends TestCase
         $order->refresh();
         $this->assertEquals(Order::STATUS_CANCELED, $order->status);
     }
-
 }

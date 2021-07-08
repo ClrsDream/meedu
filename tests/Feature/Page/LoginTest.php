@@ -1,12 +1,16 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
+
 namespace Tests\Feature\Page;
 
-use App\User;
-use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
-use Illuminate\Foundation\Testing\WithFaker;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Services\Member\Models\User;
+use Illuminate\Support\Facades\Hash;
 
 class LoginTest extends TestCase
 {
@@ -16,9 +20,7 @@ class LoginTest extends TestCase
     {
         $response = $this->get(route('login'));
         $response->assertResponseStatus(200);
-        $response->see('登录');
-        $response->see('忘记密码');
-        $response->see('注册');
+        $response->see(__('登录'));
     }
 
     // 正确的手机号和密码登录时可以登录的
@@ -27,23 +29,37 @@ class LoginTest extends TestCase
         $password = 123456;
         $user = factory(User::class)->create([
             'password' => Hash::make($password),
+            'is_lock' => User::LOCK_NO,
         ]);
         $this->visit(route('login'))
             ->type($user->mobile, 'mobile')
             ->type($password, 'password')
-            ->press('登录')
-            ->seePageIs('/member');
+            ->press(__('登录'))
+            ->seePageIs('/');
     }
 
     // 错误的密码登录重定向到login界面
     public function test_mock_user_login_fail()
     {
-        $user = factory(User::class)->create();
+        $user = factory(User::class)->create([
+            'is_lock' => User::LOCK_YES,
+        ]);
         $this->visit(route('login'))
             ->type($user->mobile, 'mobile')
             ->type($user->password, 'password')
-            ->press('登录')
+            ->press(__('登录'))
             ->seePageIs('/login');
     }
 
+    public function test_mock_user_with_locked()
+    {
+        $user = factory(User::class)->create([
+            'is_lock' => User::LOCK_YES,
+        ]);
+        $this->visit(route('login'))
+            ->type($user->mobile, 'mobile')
+            ->type($user->password, 'password')
+            ->press(__('登录'))
+            ->seePageIs('/login');
+    }
 }

@@ -1,15 +1,18 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
+
 namespace Tests\Feature\Page;
 
-use App\User;
 use Tests\TestCase;
-use Illuminate\Foundation\Testing\WithFaker;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Services\Member\Models\User;
 
 class MemberPageTest extends TestCase
 {
-
     public function test_member_page()
     {
         $user = factory(User::class)->create();
@@ -17,5 +20,4 @@ class MemberPageTest extends TestCase
             ->visit(route('member'))
             ->see($user->nick_name);
     }
-
 }

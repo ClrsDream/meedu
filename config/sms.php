@@ -1,11 +1,12 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
+
 return [
-    'default' => [
-        'gateways' => [
-            'yunpian',
-        ],
-    ],
     'gateways' => [
         'aliyun' => [
             'access_key_id' => env('ALIYUN_ACCESS_KEY_ID', ''),
@@ -15,15 +16,17 @@ return [
                 'password_reset' => '',
                 'register' => '',
                 'mobile_bind' => '',
+                'login' => '',
             ],
         ],
         'yunpian' => [
             'api_key' => env('SMS_YUNPIAN_API_KEY', ''),
-            'signature' => '【默认签名】',
+            'signature' => '',
             'template' => [
                 'password_reset' => '',
                 'register' => '',
                 'mobile_bind' => '',
+                'login' => '',
             ],
         ],
     ],

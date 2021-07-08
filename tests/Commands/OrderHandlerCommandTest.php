@@ -1,25 +1,25 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
 
 namespace Tests\Commands;
 
-
-use App\Models\Order;
-use App\User;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
-use Illuminate\Foundation\Testing\TestCase;
 use Illuminate\Support\Str;
-use Tests\CreatesApplication;
+use Tests\OriginalTestCase;
+use App\Services\Member\Models\User;
+use App\Services\Order\Models\Order;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
-class OrderHandlerCommandTest extends TestCase
+class OrderHandlerCommandTest extends OriginalTestCase
 {
-
-    use CreatesApplication, DatabaseMigrations;
-
     public function test_order_handler()
     {
-        $this->artisan('order:success', ['order_id' => Str::random()])
-            ->expectsOutput('订单不存在');
+        $this->expectException(ModelNotFoundException::class);
+        $this->artisan('order:success', ['order_id' => Str::random()]);
     }
 
     public function test_order_handler_with_order()
@@ -29,14 +29,13 @@ class OrderHandlerCommandTest extends TestCase
         $order = Order::create([
             'user_id' => $user->id,
             'charge' => 100,
-            'status' => Order::STATUS_UNPAY,
+            'status' => Order::STATUS_PAYING,
             'order_id' => Str::random(),
             'payment' => '123',
             'payment_method' => '123',
         ]);
 
-        $this->artisan('order:success', ['order_id' => $order->order_id])
-            ->expectsOutput('处理成功');
+        $this->artisan('order:success', ['order_id' => $order->order_id])->expectsOutput('success');
 
         $order->refresh();
         $this->assertEquals(Order::STATUS_PAID, $order->status);
@@ -54,7 +53,6 @@ class OrderHandlerCommandTest extends TestCase
         ]);
 
         $this->artisan('order:success', ['order_id' => $order->order_id])
-            ->expectsOutput('该订单已支付');
+            ->expectsOutput('order has paid.');
     }
-
 }

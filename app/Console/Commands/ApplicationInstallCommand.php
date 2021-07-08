@@ -4,9 +4,6 @@
  * This file is part of the Qsnh/meedu.
  *
  * (c) XiaoTeng <616896861@qq.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
  */
 
 namespace App\Console\Commands;
@@ -25,7 +22,7 @@ class ApplicationInstallCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'install {action}';
+    protected $signature = 'install {action} {--q}';
 
     /**
      * The console command description.
@@ -42,24 +39,17 @@ class ApplicationInstallCommand extends Command
         parent::__construct();
     }
 
-    /**
-     * Execute the console command.
-     *
-     * @return mixed
-     */
     public function handle()
     {
         $action = $this->argument('action');
-        if (! $action) {
+        if (!$action) {
             $this->warn('Please choice action.');
-
             return;
         }
 
-        $method = 'action'.implode('', array_map('ucfirst', explode('_', $action)));
-        if (! method_exists($this, $method)) {
+        $method = 'action' . implode('', array_map('ucfirst', explode('_', $action)));
+        if (!method_exists($this, $method)) {
             $this->warn('action not exists.');
-
             return;
         }
 
@@ -68,41 +58,48 @@ class ApplicationInstallCommand extends Command
 
     public function actionAdministrator()
     {
-        $super = AdministratorRole::whereSlug(config('meedu.administrator.super_slug'))->first();
-        if (! $super) {
+        $super = AdministratorRole::query()->where('slug', config('meedu.administrator.super_slug'))->first();
+        if (!$super) {
             $this->warn('请先运行 [ php artisan install role ] 命令来初始化meedu的管理员权限数据。');
 
             return;
         }
 
-        $name = '超级管理员';
-        $email = $this->ask('请输入邮箱:', '');
-        if (! $email) {
-            $this->warn('邮箱不能空');
+        // 是否静默安装
+        if (!$this->option('q')) {
+            $name = '超级管理员';
+            $email = $this->ask('请输入邮箱(默认：meedu@meedu.meedu):', 'meedu@meedu.meedu');
+            if (!$email) {
+                $this->warn('邮箱不能空');
 
-            return;
-        }
-        $emailExists = Administrator::whereEmail($email)->exists();
-        if ($emailExists) {
-            $this->warn('邮箱已经存在');
+                return;
+            }
+            $emailExists = Administrator::whereEmail($email)->exists();
+            if ($emailExists) {
+                $this->warn('邮箱已经存在');
 
-            return;
-        }
+                return;
+            }
 
-        $password = '';
-        while ($password == '') {
-            $password = $this->ask('请输入密码:', '');
-        }
+            $password = '';
+            while ($password === '') {
+                $password = $this->ask('请输入密码(默认：meedu123):', 'meedu123');
+            }
 
-        $passwordRepeat = '';
-        while ($passwordRepeat == '') {
-            $passwordRepeat = $this->ask('请再输入一次:', '');
-        }
+            $passwordRepeat = '';
+            while ($passwordRepeat === '') {
+                $passwordRepeat = $this->ask('请再输入一次(默认：meedu123):', 'meedu123');
+            }
 
-        if ($passwordRepeat != $password) {
-            $this->warn('两次输入密码不一致.');
+            if ($passwordRepeat !== $password) {
+                $this->warn('两次输入密码不一致.');
 
-            return;
+                return;
+            }
+        } else {
+            $name = '超级管理员';
+            $email = 'meedu@meedu.meedu';
+            $password = 'meedu123';
         }
 
         $administrator = new Administrator([
@@ -129,17 +126,17 @@ class ApplicationInstallCommand extends Command
         };
         $seeder->call(\AdministratorSuperSeeder::class);
         $seeder->call(\AdministratorPermissionSeeder::class);
+        $seeder->call(\AdministratorMenuSeeder::class);
 
         $this->info('数据初始化成功');
     }
 
-    // 后台菜单
-    public function actionBackendMenu()
+    public function actionConfig()
     {
         $seeder = new class() extends Seeder {
         };
-        $seeder->call(\BackendMenuSeeder::class);
+        $seeder->call(\AppConfigSeeder::class);
 
-        $this->info('数据初始化成功');
+        $this->info('配置初始化完成');
     }
 }

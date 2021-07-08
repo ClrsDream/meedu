@@ -1,5 +1,11 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
+
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
@@ -22,6 +28,8 @@ class CreateOrderGoodsTable extends Migration
             $table->integer('num')->default(1)->comment('商品数量');
             $table->integer('charge')->comment('商品价格');
             $table->timestamps();
+
+            $table->engine = 'InnoDB';
         });
     }
 

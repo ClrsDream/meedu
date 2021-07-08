@@ -4,54 +4,50 @@
  * This file is part of the Qsnh/meedu.
  *
  * (c) XiaoTeng <616896861@qq.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
  */
 
 namespace App\Meedu;
 
-use Illuminate\Http\Request;
-use Illuminate\Filesystem\Filesystem;
+use App\Meedu\Sms\SmsInterface;
+use App\Services\Base\Services\ConfigService;
+use App\Services\Base\Interfaces\ConfigServiceInterface;
 
 class Setting
 {
-    protected $files;
-    protected $dist;
+    const VERSION = 1;
 
-    public function __construct()
+    /**
+     * @var ConfigService
+     */
+    protected $configService;
+
+    /**
+     * Setting constructor.
+     * @param ConfigServiceInterface $configService
+     */
+    public function __construct(ConfigServiceInterface $configService)
     {
-        $this->files = new Filesystem();
-        $this->dist = config('meedu.save');
+        $this->configService = $configService;
     }
 
     /**
-     * @param $param
+     * 追加配置（用来写入部分配置）
+     * @param $config
      */
-    public function save($param)
+    public function append($config): void
     {
-        $data = $param;
-        if ($data instanceof Request) {
-            $data = $param->all();
-        }
-        $setting = collect($data)->filter(function ($item, $index) {
-            return preg_match('/\*/', $index);
-        })->mapWithKeys(function ($item, $index) {
-            $index = str_replace('*', '.', $index);
-
-            return [$index => $item];
-        })->toArray();
-        $this->put($setting);
+        $this->put($config);
     }
 
     /**
-     * 自定义配置同步到Laravel系统中.
+     * 将配置同步到laravel中
      */
-    public function sync()
+    public function sync(): void
     {
-        collect($this->get())->map(function ($item, $key) {
+        $config = $this->get();
+        foreach ($config as $key => $item) {
             config([$key => $item]);
-        });
+        }
         $this->specialSync();
     }
 
@@ -61,41 +57,59 @@ class Setting
     protected function specialSync(): void
     {
         // 短信服务注册
-        config(['sms.default.gateways' => [config('meedu.system.sms')]]);
+        $smsService = ucfirst(config('meedu.system.sms'));
+        app()->instance(SmsInterface::class, app()->make('App\\Meedu\\Sms\\' . $smsService));
     }
 
     /**
-     * 修改配置.
-     *
+     * 保存配置
      * @param array $setting
-     *
-     * @throws \Illuminate\Contracts\Filesystem\FileNotFoundException
      */
     public function put(array $setting): void
     {
-        $config = $this->files->exists($this->dist) ? $this->files->get($this->dist) : [];
-        if ($config) {
-            $config = json_decode($config, true);
-            $setting = array_merge($config, $setting);
-        }
-        $this->files->put($this->dist, json_encode($setting));
+        $setting = $this->removeUnChange($setting);
+        $this->configService->setConfig($setting);
     }
 
     /**
-     * 读取自定义配置.
-     *
+     * 读取配置
      * @return array
-     *
-     * @throws \Illuminate\Contracts\Filesystem\FileNotFoundException
      */
     public function get(): array
     {
-        if (! $this->files->exists($this->dist)) {
+        try {
+            $config = $this->configService->all();
+            $data = [];
+            foreach ($config as $item) {
+                $data[$item['key']] = $item['value'];
+            }
+            return $data;
+        } catch (\Exception $e) {
             return [];
         }
-        $jsonContent = $this->files->get($this->dist);
-        $arrayContent = json_decode($jsonContent, true);
+    }
 
-        return $arrayContent;
+    /**
+     * 获取可以编辑的配置
+     * @return array
+     */
+    public function getCanEditConfig(): array
+    {
+        return $this->configService->all();
+    }
+
+    /**
+     * @param array $config
+     * @return array
+     */
+    protected function removeUnChange(array $config): array
+    {
+        $privateVal = str_pad('', 12, '*');
+        foreach ($config as $key => $val) {
+            if ($val === $privateVal) {
+                unset($config[$key]);
+            }
+        }
+        return $config;
     }
 }

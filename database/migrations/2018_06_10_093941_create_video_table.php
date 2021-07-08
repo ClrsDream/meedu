@@ -1,5 +1,11 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
+
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
@@ -32,6 +38,8 @@ class CreateVideoTable extends Migration
             $table->tinyInteger('is_show')->comment('1显示,-1隐藏');
             $table->softDeletes();
             $table->timestamps();
+
+            $table->engine = 'InnoDB';
         });
     }
 

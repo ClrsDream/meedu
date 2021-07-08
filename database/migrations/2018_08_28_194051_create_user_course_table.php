@@ -1,5 +1,11 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
+
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
@@ -17,6 +23,8 @@ class CreateUserCourseTable extends Migration
             $table->integer('user_id');
             $table->integer('course_id');
             $table->timestamp('created_at')->default(null)->nullable(true);
+
+            $table->engine = 'InnoDB';
         });
     }
 

@@ -1,12 +1,17 @@
 <?php
 
+/*
+ * This file is part of the Qsnh/meedu.
+ *
+ * (c) XiaoTeng <616896861@qq.com>
+ */
+
 namespace Tests\Feature\Page;
 
-use App\Models\Course;
 use Carbon\Carbon;
 use Tests\TestCase;
-use Illuminate\Foundation\Testing\WithFaker;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Services\Course\Models\Course;
+use App\Services\Course\Models\CourseCategory;
 
 class CourseListPageTest extends TestCase
 {
@@ -56,9 +61,45 @@ class CourseListPageTest extends TestCase
     // 可以看到分页组件
     public function test_visit_course_see_pagination()
     {
-        factory(Course::class, 100)->create();
+        // 配置每页显示3个
+        config(['meedu.other.course_list_page_size' => 3]);
+        // 创建10个
+        factory(Course::class, 10)->create([
+            'is_show' => Course::SHOW_YES,
+            'published_at' => Carbon::now()->subDays(1),
+        ]);
         $this->visit(route('courses'))
             ->seeElement('.pagination');
     }
 
+    public function test_visit_course_with_category()
+    {
+        // 配置每页显示3个
+        config(['meedu.other.course_list_page_size' => 3]);
+        $category = factory(CourseCategory::class)->create([
+            'is_show' => CourseCategory::IS_SHOW_YES,
+            'name' => '分类一',
+        ]);
+        $category1 = factory(CourseCategory::class)->create([
+            'is_show' => CourseCategory::IS_SHOW_YES,
+            'name' => '分类二',
+        ]);
+        $c1 = factory(Course::class)->create([
+            'is_show' => Course::SHOW_YES,
+            'published_at' => Carbon::now()->subDays(1),
+            'category_id' => $category->id,
+            'title' => '哈哈'
+        ]);
+        $c2 = factory(Course::class)->create([
+            'is_show' => Course::SHOW_YES,
+            'published_at' => Carbon::now()->subDays(1),
+            'category_id' => $category1->id,
+            'title' => '大大',
+        ]);
+        $this->visit(route('courses'))
+            ->see($category->name)
+            ->see($category1->name)
+            ->click($category->name)
+            ->see($c1->title);
+    }
 }

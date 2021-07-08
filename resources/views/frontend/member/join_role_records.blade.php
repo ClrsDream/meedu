@@ -1,49 +1,32 @@
-@extends('layouts.member')
+@extends('frontend.layouts.member')
 
 @section('member')
 
-    <div class="container">
-        <div class="row">
-            <div class="col-sm-12">
-                <div class="card">
-                    <div class="card-header">我的视频</div>
-                    <div class="card-body">
-                        <table class="table table-hover">
-                            <thead class="text-center">
-                            <tr>
-                                <td>开始时间</td>
-                                <td>结束时间</td>
-                                <td>价格</td>
-                                <td>会员</td>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            @forelse($records as $record)
-                                <tr class="text-center">
-                                    <td>{{$record->started_at}}</td>
-                                    <td>{{$record->expired_at}}</td>
-                                    <td><span class="label label-default">￥{{$record->charge}}</span></td>
-                                    <td>{{$record->role->name}}</td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td class="text-center color-gray" colspan="4">暂无数据</td>
-                                </tr>
-                            @endforelse
-                            </tbody>
-                        </table>
+    @forelse($records as $recordItem)
+        @continue(!$recordItem['role'])
+        <div class="bg-white p-5 shadow rounded mb-5">
+            <div class="flex items-center text-sm text-gray-500">
+                <div class="flex-1">
+                    <div class="font-medium text-xl mb-3 text-gray-800">
+                        {{$recordItem['role']['name']}}
+                    </div>
+                    <div class="text-gray-400 text-xs">
+                        <span>{{$recordItem['started_at']}}</span>
+                        <span class="text-gray-300">-</span>
+                        <span>{{$recordItem['expired_at']}}</span>
                     </div>
                 </div>
-            </div>
-            <div class="col-sm-12 mt-10">
-                <div class="col-sm-12 pt-10">
-                    <div class="text-right">
-                        {{$records->render()}}
-                    </div>
+                <div class="ml-3">
+                    <span class="text-red-500 text-xl font-medium"><small>{{__('￥')}}</small>{{ $recordItem['charge'] }}</span>
                 </div>
             </div>
         </div>
-    </div>
+    @empty
+        @include('frontend.components.none')
+    @endforelse
 
+    <div class="">
+        {{$records->render('frontend.components.common.paginator')}}
+    </div>
 
 @endsection
